@@ -6,7 +6,7 @@ library(graphics)
 library(tidyverse)
 library(ggpubr)
 library(car)
-library(rcompanion)
+#library(rcompanion)
 library(rstatix)
 library(orcutt)
 data <- read.table("machine.data", header = F, sep = ",")
@@ -51,6 +51,7 @@ hist(data$CHMIN, xlab="CHMIN", labels = T, main = "CHMIN Histogram", xlim = c(0,
 hist(data$CHMAX, xlab="CHMAX", labels = T, main = "CHMAX Histogram", xlim = c(0,max[6]))
 hist(data$PRP, xlab="PRP", labels = T, main = "PRP Histogram", xlim = c(0,max[7]))
 hist(data$ERP, xlab="ERP", labels = T, main = "ERP Histogram", xlim = c(0,max[8]))
+
 
 m2<-lm(log10(data$ERP)~data$MYCT+data$MMIN+data$MMAX+data$CACH+data$CHMIN+data$CHMAX+data$PRP)
 ggqqplot(resid(m2))
