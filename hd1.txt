@@ -1,0 +1,154 @@
+rm(list=ls())  
+setwd("C:/Users/DELL/OneDrive/Desktop/xstk")
+load(file = "flights.rda") #Load data vao Rstudio
+library(rcompanion) #Thu vien de lam viec
+library(AID)
+library(ggplot2)
+library(moments)
+library(lessR)
+library(nortest)
+library(VIM)
+library(dplyr)
+library(validate)
+library(dplyr)
+library(psych)
+library(onewaytests)
+library(car)
+library(ggpubr)
+library(rstatix)
+library(caTools)
+library(orcutt)
+newdata = data.frame(year = flights$year,
+                     month = flights$month,
+                     day = flights$day,
+                     carrier = flights$carrier,
+                     origin = flights$origin,
+                     dest = flights$dest,
+                     dep_time = flights$dep_time,
+                     arr_time = flights$arr_time,
+                     dep_delay = flights$dep_delay,
+                     arr_delay = flights$arr_delay,
+                     distance = flights$distance)
+
+#Dem so NA
+newdata %>% summarise_all(funs(sum(is.na(.))))
+
+#Bieu do NA
+mice_plot <- aggr(newdata, col=c('navyblue','yellow'),
+                  numbers=TRUE, sortVars=TRUE,
+                  labels=names
+                  (newdata), cex.axis=.5,
+                  gap=3, ylab=c("Missing data","Pattern"))
+
+#Loai bo na value
+newdata = na.omit(newdata)
+
+#Loai bo cac dong giong nhau
+distinct(newdata)
+
+year <- newdata$year
+month <- newdata$month
+day <- newdata$day
+carrier <- newdata$carrier
+origin <- newdata$origin
+dest <- newdata$dest
+dep_time <- newdata$dep_time
+arr_time <- newdata$arr_time
+dep_delay <- newdata$dep_delay
+arr_delay <- newdata$arr_delay
+distance <- newdata$distance
+
+fac <- factor(newdata$carrier) #Lay cot hang bay
+fac <- fac[!duplicated(fac)]  #Lay dung 11 hang bay
+
+#Visualize data
+summary(newdata)
+
+
+
+hist(newdata$dep_time) #Ve histogram dep_time
+Plot(dep_time, data = newdata)
+#qqnorm(newdata$dep_time,lwd = 3, cex.axis=1, cex.lab = 1.5, main = "dep_time")
+#qqline(newdata$dep_time, lwd = 2.5, col = "red")
+
+
+
+hist(newdata$arr_time)
+Plot(arr_time, data = newdata)
+
+hist(newdata$dep_delay)
+Plot(dep_delay, data = newdata)
+
+hist(newdata$arr_delay)
+Plot(arr_delay, data = newdata)
+
+hist(newdata$distance)
+Plot(distance, data = newdata)
+
+
+
+
+################## 
+vca<- newdata %>% group_by(carrier) %>% identify_outliers(dep_delay)  #DEm outlier
+sum(vca$is.outlier== TRUE)  
+
+#Lam cho du lieu >0 (min cua dep_delay = -37)
+
+ggqqplot(newdata,"dep_delay",facet.by = "carrier")  #check tung hang bay
+
+new_dep <- (38+dep_delay) 
+newdata$new_dep <- new_dep
+#Thay outlier bang gia tri trung binh
+for(carri in fac){
+  q1 <- quantile(newdata$new_dep[newdata$carrier == carri], 0.25)
+  q3 <- quantile(newdata$new_dep[newdata$carrier == carri], 0.75)
+  mea <- mean(newdata$new_dep[newdata$carrier == carri])
+  newdata$new_dep[newdata$carrier == carri & newdata$new_dep >= q3 + 1.5*(q3-q1)] <- mea
+  newdata$new_dep[newdata$carrier == carri & newdata$new_dep <= q1 - 1.5*(q3-q1)] <- mea
+}
+vec <- newdata$new_dep
+newdata$new_dep <- (vec)^(-1)
+
+
+#Tao anova object
+aov <- aov(newdata$new_dep ~ carrier)
+#Ve histogram phan phoi chuan
+plotNormalHistogram( residuals(aov), prob = FALSE,
+                     main = "Normal Distribution overlay on Histogram")
+
+ggqqplot(residuals(aov))
+
+#Kiem tra tinh phuong sai dong nhat(trong bai nay chi tang 1 chut nen chap nhan dc)
+spreadLevelPlot(aov)
+
+
+#Hien ket qua anova (khac nhau)
+summary(aov)
+#Kiem dinh cho tung cap hang bay
+TukeyHSD(aov)
+
+#De hqtt hieu qua can thoa man cac gia dinh:
+#+Residual pp chuan
+#+Phuong sai dong nhat
+#+Co quan he tuyen tinh giua cac bien
+#+Ko co hien tuong tu tuong quan (autocorrelation)
+
+
+
+#Model day du cac bien
+full <- lm((newdata$arr_delay) ~ carrier+dest+origin+month+day+year+dep_time+arr_time+dep_delay+distance ,data = newdata)
+#Loai bo dan cac bien de co duoc model chinh xac nhat
+y_train <- step(full, direction = "backward", test = "F", k = log(nrow(newdata)))
+
+#normality check va chi so trung binh == 0
+plotNormalHistogram( residuals(y_train), prob = FALSE,
+                     main = "Normal Distribution overlay on Histogram")
+#non-linearity check 
+crPlots(y_train)
+#variance check(chap nhan dc)
+spreadLevelPlot(y_train)#phuong sai dong nhat
+#Kiem tra tu tuong quan(failed)         Su dung durbinwatsontest de kiem tra su tu tuong quan
+durbinWatsonTest(y_train)
+#Su dung cochrane-orcutt procedure de loai bo tu tuong quan
+coch = cochrane.orcutt(y_train)
+summary(coch)

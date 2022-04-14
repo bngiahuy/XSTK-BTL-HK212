@@ -1,0 +1,61 @@
+library(dplyr)
+library(base)
+library(utils)
+library(psych)
+library(graphics)
+library(tidyverse)
+library(ggpubr)
+library(car)
+library(rcompanion)
+library(rstatix)
+library(orcutt)
+data <- read.table("machine.data", header = F, sep = ",")
+data <- data.frame(Vendor_name = data$V1,
+                   Model = data$V2,
+                   MYCT = data$V3,
+                   MMIN = data$V4,
+                   MMAX = data$V5,
+                   CACH=data$V6 , 
+                   CHMIN=data$V7, 
+                   CHMAX=data$V8 , 
+                   PRP=data$V9 , 
+                   ERP=data$V10)
+View(data)
+ #Kiem tra va xuat ra gia tri khuyet cua data
+#neu ra integer(0) nghia la ko co gia tri khuyet
+apply(is.na(data), 2, which)
+distinct(data) # loai bo cac dong giong nhau
+# Lam ro du lieu 
+mean = apply(data %>% select(MYCT:ERP), 2, mean) # trung binh
+median = apply(data %>% select(MYCT:ERP), 2, median) # trung vi
+sd = apply(data %>% select(MYCT:ERP), 2, sd) # Do lech chuan
+max = apply(data %>% select(MYCT:ERP), 2, max) # GT lon nhat
+min = apply(data %>% select(MYCT:ERP), 2, min) # GT nho nhat
+
+
+descriptive_statistics = data.frame(mean, median, sd, max, min) 
+summary(descriptive_statistics)
+
+
+#describeBy(data[,c("PRP","ERP")],data$Model)
+# Thong ke mau
+by(data[,c("MYCT","CACH","PRP", "ERP")], data$Vendor_name, summary)
+
+# Dem so luong
+#length(unique(data$Vendor_name))
+hist(data$MYCT, xlab="MYCT", labels = T, main = "MYCT Histogram", xlim = c(0,max[1]))
+hist(data$MMIN, xlab="MMIN", labels = T, main = "MMIN Histogram", xlim = c(0,max[2]))
+hist(data$MMAX, xlab="MMAX", labels = T, main = "MMAX Histogram", xlim = c(0,max[3]))
+hist(data$CACH, xlab="CACH", labels = T, main = "CACH Histogram", xlim = c(0,max[4]))
+hist(data$CHMIN, xlab="CHMIN", labels = T, main = "CHMIN Histogram", xlim = c(0,max[5]))
+hist(data$CHMAX, xlab="CHMAX", labels = T, main = "CHMAX Histogram", xlim = c(0,max[6]))
+hist(data$PRP, xlab="PRP", labels = T, main = "PRP Histogram", xlim = c(0,max[7]))
+hist(data$ERP, xlab="ERP", labels = T, main = "ERP Histogram", xlim = c(0,max[8]))
+
+m2<-lm(log10(data$ERP)~data$MYCT+data$MMIN+data$MMAX+data$CACH+data$CHMIN+data$CHMAX+data$PRP)
+ggqqplot(resid(m2))
+spreadLevelPlot(m2)
+crPlots(m2)
+durbinWatsonTest(m2)#fail
+orcut = cochrane.orcutt(m2)
+summary(orcut)
